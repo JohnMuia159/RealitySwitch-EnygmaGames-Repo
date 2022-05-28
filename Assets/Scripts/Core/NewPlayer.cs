@@ -52,14 +52,17 @@ public class NewPlayer : PhysicsObject
     public float terminalVelocity = 15;
     public float jumpPower = 10;
     public float wallJumpLerp = 10;
-    public float fallMultiplier = 2.5f;
-    public float lowJumpMultiplier = 2f;
+    public float jumpButtonGracePeriod;
+    [SerializeField] private float fallMultiplier = 2f;
+    [SerializeField] private float lowJumpMultiplier = 2f;
     private bool running;
     private bool jumping;
+    private float? jumpButtonPressed;
     private Vector3 origLocalScale;
     [System.NonSerialized] public bool pounded;
     [System.NonSerialized] public bool pounding;
     [System.NonSerialized] public bool shooting = false;
+    public Vector2 gravityStore;
 
     [Header("Dashing")]
     [SerializeField] private float dashTime = 0.5f;
@@ -102,12 +105,27 @@ public class NewPlayer : PhysicsObject
     public bool onRightWall;
     public bool onLeftWall;
     public int wallSide;
+    public bool jumpNearWall;
+    public bool isWallSliding;
 
     [Header("Layers")]
     public LayerMask groundLayer;
 
-    void Start()
+    [Header("Better Movement")]
+    private Vector2 moveInput;
+    [SerializeField] private float acceleration;
+    [SerializeField] private float deceleration;
+    [SerializeField] private float velPower;
+    [SerializeField] private float frictionAmount;
+
+    [Header("Wall Movement")]
+    [SerializeField] private float slideSpeed;
+    private bool doDash;
+    private bool doJump;
+    protected override void Start()
     {
+        base.Start();
+        gravityStore = Physics2D.gravity;
         Cursor.visible = false;
         SetUpCheatItems();
         health = maxHealth;
@@ -123,18 +141,102 @@ public class NewPlayer : PhysicsObject
         SetGroundType();
     }
 
-    private void Update()
+    protected override void FixedUpdate()
     {
-        ComputeVelocity();
+        base.FixedUpdate();
+        if (doDash)
+        {
+            rb.velocity = dashingDir.normalized * dashSpeed;
+            rb.position = new Vector2(rb.position.x, initialYPos);
+            doDash = false;
+        }
+        if (doJump)
+        {
+            rb.AddForce(Vector2.up * jumpPower, ForceMode2D.Impulse);
+            doJump = false;
+        }
+        BetterJump();
+        Walk();
+    }
+
+    protected override void Update()
+    {
+        base.Update();
+        CheckAnimations();
         CheckGround();
         CheckWalls();
-        BetterJump();
+
+        JumpBuffer();
         Dash();
-        Debug.Log(isDashing + " " + rb.velocity + " " + dashingDir);
+        CheckInputs();
+        CheckCoyoteTime();
 
 
-
+ 
+      
+        // WallSlideCheck();
+        Debug.Log(rb.velocity.y);
     }
+
+    public void CheckAnimations()
+    {
+
+        //Set each animator float, bool, and trigger to it knows which animation to fire
+        animator.SetFloat("velocityX", Mathf.Abs(velocity.x));
+        animator.SetFloat("velocityY", velocity.y);
+        animator.SetInteger("attackDirectionY", (int)Input.GetAxis("VerticalDirection"));
+        animator.SetInteger("moveDirection", (int)Input.GetAxis("HorizontalDirection"));
+        animator.SetBool("hasChair", GameManager.Instance.inventory.ContainsKey("chair"));
+    }
+    public void CheckCoyoteTime()
+    {
+        //Allow the player to jump even if they have just fallen off an edge ("fall forgiveness")
+        if (!grounded)
+        {
+            if (fallForgivenessCounter < fallForgiveness && !jumping)
+            {
+                fallForgivenessCounter += Time.deltaTime;
+            }
+            else
+            {
+                animator.SetBool("grounded", false);
+            }
+        }
+        else
+        {
+            fallForgivenessCounter = 0;
+            animator.SetBool("grounded", true);
+            canDash = true;
+        }
+    }
+
+    public void CheckInputs()
+    {
+        moveInput.x = Input.GetAxisRaw("Horizontal");
+        moveInput.y = Input.GetAxisRaw("Vertical");
+
+        if (Input.GetButtonDown("Cancel"))
+        {
+            pauseMenu.SetActive(true);
+        }
+
+        if (Input.GetMouseButtonDown(0))
+        {
+            animator.SetTrigger("attack");
+            Shoot(false);
+        }
+
+        //Flip the graphic's localScale
+        if (moveInput.x > 0.01f)
+        {
+            graphic.transform.localScale = new Vector3(origLocalScale.x, transform.localScale.y, transform.localScale.z);
+        }
+        else if (moveInput.x < -0.01f)
+        {
+            graphic.transform.localScale = new Vector3(-origLocalScale.x, transform.localScale.y, transform.localScale.z);
+        }
+    }
+
 
     public void Dash()
     {
@@ -144,11 +246,11 @@ public class NewPlayer : PhysicsObject
             isDashing = true;
             canDash = false;
             trailRenderer.emitting = true;
-            dashingDir = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+            dashingDir = new Vector2(Input.GetAxisRaw("Horizontal"), 0);
 
             if (dashingDir == Vector2.zero)
             {
-                dashingDir = new Vector2(transform.forward.x, 0);
+                dashingDir = new Vector2(graphic.transform.localScale.x, 0);
 
             }
             StartCoroutine(StopDashing());
@@ -158,142 +260,123 @@ public class NewPlayer : PhysicsObject
 
         if (isDashing)
         {
+            Physics.gravity = Vector2.zero;
             gravityModifier = 0;
             rb.gravityScale = 0;
-            rb.velocity = dashingDir.normalized * dashSpeed;
-            rb.position = new Vector2(rb.position.x, initialYPos);
-     
+            doDash = true;
+
+
             return;
         }
     }
 
 
-    protected void ComputeVelocity()    
-    {
-        //Player movement & attack
-        //Vector2 move = Vector2.zero;
-        float x = Input.GetAxis("Horizontal");
-        float y = Input.GetAxis("Vertical");
-        float xRaw = Input.GetAxisRaw("Horizontal");
-        float yRaw = Input.GetAxisRaw("Vertical");
-        Vector2 move = new Vector2(x, y);
-
-        ground = Physics2D.Raycast(new Vector2(transform.position.x, transform.position.y), -Vector2.up);
-
-        //Lerp launch back to zero at all times
-        launch += (0 - launch) * Time.deltaTime * launchRecovery;
-
-        if (Input.GetButtonDown("Cancel"))
-        {
-            pauseMenu.SetActive(true);
-        }
-        //Movement, jumping, and attacking!
-        if (!frozen)
-        {
-            move.x = Input.GetAxis("Horizontal");
-
-            if (Input.GetButtonDown("Jump") && animator.GetBool("grounded") == true && !jumping)
-            {
-                animator.SetBool("pounded", false);
-                Jump(1f, Vector2.up, false);
-            }
-
-        
-
-            //Flip the graphic's localScale
-            if (move.x > 0.01f)
-            {
-                graphic.transform.localScale = new Vector3(origLocalScale.x, transform.localScale.y, transform.localScale.z);
-            }
-            else if (move.x < -0.01f)
-            {
-                graphic.transform.localScale = new Vector3(-origLocalScale.x, transform.localScale.y, transform.localScale.z);
-            }
-            Walk(move);
-            //Punch
-            if (Input.GetMouseButtonDown(0))
-            {
-                animator.SetTrigger("attack");
-                Shoot(false);
-            }
-
-            //Secondary attack (currently shooting) with right click
-            if (Input.GetMouseButtonDown(1))
-            {
-                Shoot(true);
-            }
-            else if (Input.GetMouseButtonUp(1))
-            {
-                Shoot(false);
-            }
-
-            if (shooting)
-            {
-                SubtractAmmo();
-            }
-
-            //Allow the player to jump even if they have just fallen off an edge ("fall forgiveness")
-            if (!grounded)
-            {
-                if (fallForgivenessCounter < fallForgiveness && !jumping)
-                {
-                    fallForgivenessCounter += Time.deltaTime;
-                }
-                else
-                {
-                    animator.SetBool("grounded", false);
-                }
-            }
-            else
-            {
-                fallForgivenessCounter = 0;
-                animator.SetBool("grounded", true);
-                canDash = true;
-            }
-
-            //Set each animator float, bool, and trigger to it knows which animation to fire
-            animator.SetFloat("velocityX", Mathf.Abs(velocity.x) );
-            animator.SetFloat("velocityY", velocity.y);
-            animator.SetInteger("attackDirectionY", (int)Input.GetAxis("VerticalDirection"));
-            animator.SetInteger("moveDirection", (int)Input.GetAxis("HorizontalDirection"));
-            animator.SetBool("hasChair", GameManager.Instance.inventory.ContainsKey("chair"));
-            //targetVelocity = move * maxSpeed;
-           
-
-
-
-        }
-        else
-        {
-            //If the player is set to frozen, his launch should be zeroed out!
-            launch = 0;
-        }
-    }
-
     private IEnumerator StopDashing()
     {
         yield return new WaitForSeconds(dashTime);
+        Physics2D.gravity = gravityStore;
         gravityModifier = 1;
         rb.gravityScale = 1;
         trailRenderer.emitting = false;
         isDashing = false;
     }
 
-    public void BetterJump()
+    public void JumpBuffer()
     {
-        if (rb.velocity.y < 0 && !isDashing)
+
+        if (Input.GetButtonDown("Jump"))
         {
-            rb.velocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1) * Time.deltaTime;
+            jumpButtonPressed = Time.time;
         }
-        else if (rb.velocity.y > 0 && !Input.GetButton("Jump") && !isDashing)
-        { 
-            rb.velocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1) * Time.deltaTime;
-        }
-        if (jumping && Input.GetKey("s") && !isDashing)
+
+        if (!jumping && Time.time - jumpButtonPressed <= jumpButtonGracePeriod)
         {
-            rb.velocity -= Vector2.down * Physics2D.gravity.y * (fallMultiplier * 2) * Time.deltaTime/2;
+            Jump();
+            jumpButtonPressed = null;
         }
     }
+    public void Jump()
+    {
+        PlayJumpSound();
+        PlayStepSound();
+        JumpEffect();
+        jumping = true;
+        doJump = true;
+    }
+
+
+    public void BetterJump()
+    {
+
+        if (rb.velocity.y < 0 && !isDashing)
+        {
+            //rb.gravityScale = gravityModifier * fallMultiplier;
+             rb.velocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1) * Time.deltaTime;
+        }
+
+        else if (rb.velocity.y > 0 && !Input.GetButton("Jump") && !isDashing && !isWallSliding)
+        {
+            // rb.AddForce(Vector2.down * rb.velocity.y * (lowJumpMultiplier - 1), ForceMode2D.Impulse);
+            rb.velocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1) * Time.deltaTime;
+        }
+        else
+        {
+            rb.gravityScale = gravityModifier;
+        }
+        // if (jumping && Input.GetKey("s") && !isDashing)
+        //{
+        //    rb.velocity -= Vector2.down * Physics2D.gravity.y * (fallMultiplier * 2) * Time.deltaTime / 2;
+        //}
+    }
+
+    //public void WallSlideCheck()
+    //{
+    //    //if (onWall && Input.GetButtonDown("Jump"))
+    //    //{
+    //    //    jumpNearWall = true;
+    //    //}
+    //     if (!onWall)
+    //    {
+
+    //        isWallSliding = false;
+    //        //jumpNearWall = false;
+    //    }
+
+    //    //if (onWall && !grounded && !jumpNearWall)
+    //    //{
+    //    //    Physics2D.gravity = Vector2.zero;
+    //    //    gravityModifier = 0;
+    //    //    rb.gravityScale = 0;
+    //    //}
+    //    //else
+    //    //{
+    //    //    Physics2D.gravity = gravityStore;
+    //    //    gravityModifier = 1;
+    //    //    rb.gravityScale = 1;
+    //    //}
+
+    //    if (!CheckGround() && onRightWall && moveInput.x > 0)
+    //    {
+    //        isWallSliding = true;
+    //        WallSlide();
+    //    }
+    //    else if (!CheckGround() && onLeftWall && moveInput.x < 0)
+    //    {
+    //        isWallSliding = true;
+    //        WallSlide();
+    //    }
+
+    //}
+
+    //public void WallSlide()
+    //{
+    //    //  rb.velocity = Vector2.zero;
+    //    if (isWallSliding)
+    //        rb.velocity = new Vector2(rb.velocity.x, Mathf.Clamp(rb.velocity.y, -slideSpeed, float.MaxValue));
+    //    Debug.Log("IsWallSliding" + " " + rb.velocity);
+    //    // rb.AddForce(Vector2.down * slideSpeed, ForceMode2D.Impulse); //new Vector2(rb.velocity.x, -slideSpeed);
+    //    // rb.velocity = Vector2.ClampMagnitude(rb.velocity, maxSlideSpeed);
+    //}
 
     public bool CheckGround()
     {
@@ -320,16 +403,33 @@ public class NewPlayer : PhysicsObject
         Gizmos.DrawWireSphere((Vector2)transform.position + bottomOffset, collisionRadius);
         Gizmos.DrawWireSphere((Vector2)transform.position + rightOffset, collisionRadius);
         Gizmos.DrawWireSphere((Vector2)transform.position + leftOffset, collisionRadius);
-        Gizmos.DrawLine((Vector2)transform.position, dashingDir);
     }
 
-    public void Walk(Vector2 dir)
+    public void Walk()
     {
-        if (!isDashing)
-        rb.velocity = Vector2.Lerp(rb.velocity, (new Vector2(dir.x * maxSpeed, rb.velocity.y)), wallJumpLerp * Time.deltaTime);
+
+
+        float targetSpeed = moveInput.x * maxSpeed;
+
+        float speedDif = targetSpeed - rb.velocity.x;
+
+        float accelRate = (Mathf.Abs(targetSpeed) > 0.01f) ? acceleration : deceleration;
+
+        float movement = Mathf.Pow(Mathf.Abs(speedDif) * accelRate, velPower) * Mathf.Sign(speedDif);
+
+        rb.AddForce(movement * Vector2.right);
+
+        if (animator.GetBool("grounded") && Mathf.Abs(moveInput.x) < 0.01f)
+        {
+            float amount = Mathf.Min(Mathf.Abs(rb.velocity.x), Mathf.Abs(frictionAmount));
+
+            amount *= Mathf.Sign(rb.velocity.x);
+
+            rb.AddForce(Vector2.right * -amount, ForceMode2D.Impulse);
+        }
         //rb.velocity = (new Vector2(dir.x * currentSpeed, rb.velocity.y));
 
-       // if (rb.velocity. <= maxSpeed)
+        // if (rb.velocity. <= maxSpeed)
     }
 
     public void SetGroundType()
@@ -442,21 +542,7 @@ public class NewPlayer : PhysicsObject
         }
     }
 
-    public void Jump(float jumpMultiplier, Vector2 dir, bool wall)
-    {
-        //   if (velocity.y != jumpPower)
-        //  {
-
-        //rb.velocity = dir * jumpPower;
-        rb.AddForce(dir * jumpPower, ForceMode2D.Impulse);
-        //velocity.y = jumpPower * jumpMultiplier; //The jumpMultiplier allows us to use the Jump function to also launch the player from bounce platforms
-        PlayJumpSound();
-        PlayStepSound();
-        JumpEffect();
-        jumping = true;
-        // }
-    }
-
+ 
     public void PlayStepSound()
     {
         //Play a step sound at a random pitch between two floats, while also increasing the volume based on the Horizontal axis

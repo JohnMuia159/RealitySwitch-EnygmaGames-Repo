@@ -71,6 +71,10 @@ public class NewPlayer : PhysicsObject
     private bool isDashing;
     private bool canDash = true;
     private float initialYPos;
+    [SerializeField] private float dashCoolDown = 0;
+    [SerializeField] private float dashCoolDownTimer;
+    private bool dashTimer;
+    private bool dashCDFinish;
 
 
 
@@ -199,10 +203,7 @@ public class NewPlayer : PhysicsObject
             Jump(true);
 
         }
-
-
         WallSlideCheck();
-        Debug.Log(rb.velocity.y);
     }
 
     public void CheckAnimations()
@@ -267,11 +268,13 @@ public class NewPlayer : PhysicsObject
 
     public void Dash()
     {
-        if (Input.GetButtonDown("Dash") && canDash)
+        if (Input.GetButtonDown("Dash") && canDash && dashCDFinish)
         {
+            dashCDFinish = false;
             initialYPos = rb.position.y;
             isDashing = true;
             canDash = false;
+            dashTimer = true;
             trailRenderer.emitting = true;
             dashingDir = new Vector2(Input.GetAxisRaw("Horizontal"), 0);
 
@@ -282,6 +285,16 @@ public class NewPlayer : PhysicsObject
             }
             StartCoroutine(StopDashing());
         }
+        if (dashTimer)
+            dashCoolDown -= Time.deltaTime;
+
+        if (dashCoolDown <= 0)
+        {
+            dashCDFinish = true;
+            dashTimer = false;
+            dashCoolDown = dashCoolDownTimer; 
+        }
+            
 
         // animator.SetBool("IsDashing", isDashing);
 
@@ -340,61 +353,39 @@ public class NewPlayer : PhysicsObject
         if (rb.velocity.y < 0 && !isDashing)
         {
             gravityModifier = fallMultiplier;
-            //rb.gravityScale = gravityModifier * fallMultiplier;
-             //rb.velocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1) * Time.deltaTime;
         }
 
         else if (rb.velocity.y > 0 && !Input.GetButton("Jump") && !isDashing && !wallJumped)
-        {
-            // rb.AddForce(Vector2.down * rb.velocity.y * (lowJumpMultiplier - 1), ForceMode2D.Impulse);
-            // rb.velocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1) * Time.deltaTime;
+        { 
             gravityModifier = lowJumpMultiplier;
         }
         else
         {
             gravityModifier = gravityStore;
         }
-        // if (jumping && Input.GetKey("s") && !isDashing)
-        //{
-        //    rb.velocity -= Vector2.down * Physics2D.gravity.y * (fallMultiplier * 2) * Time.deltaTime / 2;
-        //}
+        //
     }
 
     public void WallSlideCheck()
     {
-        //if (onWall && Input.GetButtonDown("Jump"))
-        //{
-        //    jumpNearWall = true;
-        //}
         if (!onWall && !jumping)
         {
             isWallSliding = false;
 
         } 
-
-
-        //if (onWall && !grounded && !jumpNearWall)
-        //{
-        //    Physics2D.gravity = Vector2.zero;
-        //    gravityModifier = 0;
-        //    rb.gravityScale = 0;
-        //}
-        //else
-        //{
-        //    Physics2D.gravity = gravityStore;
-        //    gravityModifier = 1;
-        //    rb.gravityScale = 1;
-        //}
-
         if (!CheckGround() && onRightWall && moveInput.x > 0)
         {
             jumpTime = Time.time + wallJumpTime;
             isWallSliding = true;
+            canDash = true;
+            dashCoolDown = 0;
         }
         else if (!CheckGround() && onLeftWall && moveInput.x < 0)
         {
             jumpTime = Time.time + wallJumpTime;
             isWallSliding = true;
+            canDash = true;
+            dashCoolDown = 0;
         } else if (jumpTime < Time.time)
         {
             isWallSliding = false;

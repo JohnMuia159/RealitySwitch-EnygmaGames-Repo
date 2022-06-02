@@ -62,7 +62,7 @@ public class NewPlayer : PhysicsObject
     [System.NonSerialized] public bool pounded;
     [System.NonSerialized] public bool pounding;
     [System.NonSerialized] public bool shooting = false;
-    public Vector2 gravityStore;
+    public float gravityStore;
 
     [Header("Dashing")]
     [SerializeField] private float dashTime = 0.5f;
@@ -122,10 +122,15 @@ public class NewPlayer : PhysicsObject
     [SerializeField] private float slideSpeed;
     private bool doDash;
     private bool doJump;
+    private bool doWallJump;
+    public float wallJumpTime = 0.2f;
+    public float jumpTime;
+    public bool wallJumped;
+    public float lastWallSide;
     protected override void Start()
     {
         base.Start();
-        gravityStore = Physics2D.gravity;
+        gravityStore = gravityModifier;
         Cursor.visible = false;
         SetUpCheatItems();
         health = maxHealth;
@@ -144,6 +149,8 @@ public class NewPlayer : PhysicsObject
     protected override void FixedUpdate()
     {
         base.FixedUpdate();
+        if (!CheckGround())
+        rb.velocity += gravityModifier * Physics2D.gravity * Time.deltaTime;
         if (doDash)
         {
             rb.velocity = dashingDir.normalized * dashSpeed;
@@ -155,6 +162,19 @@ public class NewPlayer : PhysicsObject
             rb.AddForce(Vector2.up * jumpPower, ForceMode2D.Impulse);
             doJump = false;
         }
+        if (doWallJump)
+        {
+            rb.velocity = new Vector2(wallSide * maxSpeed,jumpPower) ;
+            //  rb.AddForce(-moveInput.x * jumpPower, ForceMode2D.Impulse);
+            lastWallSide = wallSide;
+            doWallJump = false;
+            isWallSliding = false;
+        }
+        if (isWallSliding)
+        {
+            rb.velocity = new Vector2(rb.velocity.x, Mathf.Clamp(rb.velocity.y, -slideSpeed, float.MaxValue));
+        }
+
         BetterJump();
         Walk();
     }
@@ -162,19 +182,26 @@ public class NewPlayer : PhysicsObject
     protected override void Update()
     {
         base.Update();
+        rb.gravityScale = gravityModifier;
         CheckAnimations();
         CheckGround();
         CheckWalls();
-
         JumpBuffer();
         Dash();
         CheckInputs();
         CheckCoyoteTime();
+        if (CheckGround())
+            wallJumped = false;
+
+        if (onWall && isWallSliding && !CheckGround() && Input.GetButtonDown("Jump"))
+        {
+            wallJumped = true;
+            Jump(true);
+
+        }
 
 
- 
-      
-        // WallSlideCheck();
+        WallSlideCheck();
         Debug.Log(rb.velocity.y);
     }
 
@@ -260,9 +287,9 @@ public class NewPlayer : PhysicsObject
 
         if (isDashing)
         {
-            Physics.gravity = Vector2.zero;
+            //Physics.gravity = Vector2.zero;*
             gravityModifier = 0;
-            rb.gravityScale = 0;
+            //rb.gravityScale = 0;
             doDash = true;
 
 
@@ -274,9 +301,8 @@ public class NewPlayer : PhysicsObject
     private IEnumerator StopDashing()
     {
         yield return new WaitForSeconds(dashTime);
-        Physics2D.gravity = gravityStore;
-        gravityModifier = 1;
-        rb.gravityScale = 1;
+        gravityModifier = gravityStore;
+       // rb.gravityScale = 1;
         trailRenderer.emitting = false;
         isDashing = false;
     }
@@ -284,44 +310,49 @@ public class NewPlayer : PhysicsObject
     public void JumpBuffer()
     {
 
-        if (Input.GetButtonDown("Jump"))
+        if (Input.GetButtonDown("Jump") && !wallJumped)
         {
             jumpButtonPressed = Time.time;
         }
 
-        if (!jumping && Time.time - jumpButtonPressed <= jumpButtonGracePeriod)
+        if (!jumping && Time.time - jumpButtonPressed <= jumpButtonGracePeriod && !wallJumped)
         {
-            Jump();
+            Jump(false);
             jumpButtonPressed = null;
         }
     }
-    public void Jump()
+    public void Jump(bool wall)
     {
         PlayJumpSound();
         PlayStepSound();
         JumpEffect();
         jumping = true;
-        doJump = true;
+        if (!wall)
+            doJump = true;
+        else if (wall)
+            doWallJump = true;
     }
 
-
+    
     public void BetterJump()
     {
 
         if (rb.velocity.y < 0 && !isDashing)
         {
+            gravityModifier = fallMultiplier;
             //rb.gravityScale = gravityModifier * fallMultiplier;
-             rb.velocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1) * Time.deltaTime;
+             //rb.velocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1) * Time.deltaTime;
         }
 
-        else if (rb.velocity.y > 0 && !Input.GetButton("Jump") && !isDashing && !isWallSliding)
+        else if (rb.velocity.y > 0 && !Input.GetButton("Jump") && !isDashing && !wallJumped)
         {
             // rb.AddForce(Vector2.down * rb.velocity.y * (lowJumpMultiplier - 1), ForceMode2D.Impulse);
-            rb.velocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1) * Time.deltaTime;
+            // rb.velocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1) * Time.deltaTime;
+            gravityModifier = lowJumpMultiplier;
         }
         else
         {
-            rb.gravityScale = gravityModifier;
+            gravityModifier = gravityStore;
         }
         // if (jumping && Input.GetKey("s") && !isDashing)
         //{
@@ -329,54 +360,47 @@ public class NewPlayer : PhysicsObject
         //}
     }
 
-    //public void WallSlideCheck()
-    //{
-    //    //if (onWall && Input.GetButtonDown("Jump"))
-    //    //{
-    //    //    jumpNearWall = true;
-    //    //}
-    //     if (!onWall)
-    //    {
+    public void WallSlideCheck()
+    {
+        //if (onWall && Input.GetButtonDown("Jump"))
+        //{
+        //    jumpNearWall = true;
+        //}
+        if (!onWall && !jumping)
+        {
+            isWallSliding = false;
 
-    //        isWallSliding = false;
-    //        //jumpNearWall = false;
-    //    }
+        } 
 
-    //    //if (onWall && !grounded && !jumpNearWall)
-    //    //{
-    //    //    Physics2D.gravity = Vector2.zero;
-    //    //    gravityModifier = 0;
-    //    //    rb.gravityScale = 0;
-    //    //}
-    //    //else
-    //    //{
-    //    //    Physics2D.gravity = gravityStore;
-    //    //    gravityModifier = 1;
-    //    //    rb.gravityScale = 1;
-    //    //}
 
-    //    if (!CheckGround() && onRightWall && moveInput.x > 0)
-    //    {
-    //        isWallSliding = true;
-    //        WallSlide();
-    //    }
-    //    else if (!CheckGround() && onLeftWall && moveInput.x < 0)
-    //    {
-    //        isWallSliding = true;
-    //        WallSlide();
-    //    }
+        //if (onWall && !grounded && !jumpNearWall)
+        //{
+        //    Physics2D.gravity = Vector2.zero;
+        //    gravityModifier = 0;
+        //    rb.gravityScale = 0;
+        //}
+        //else
+        //{
+        //    Physics2D.gravity = gravityStore;
+        //    gravityModifier = 1;
+        //    rb.gravityScale = 1;
+        //}
 
-    //}
+        if (!CheckGround() && onRightWall && moveInput.x > 0)
+        {
+            jumpTime = Time.time + wallJumpTime;
+            isWallSliding = true;
+        }
+        else if (!CheckGround() && onLeftWall && moveInput.x < 0)
+        {
+            jumpTime = Time.time + wallJumpTime;
+            isWallSliding = true;
+        } else if (jumpTime < Time.time)
+        {
+            isWallSliding = false;
+        }
 
-    //public void WallSlide()
-    //{
-    //    //  rb.velocity = Vector2.zero;
-    //    if (isWallSliding)
-    //        rb.velocity = new Vector2(rb.velocity.x, Mathf.Clamp(rb.velocity.y, -slideSpeed, float.MaxValue));
-    //    Debug.Log("IsWallSliding" + " " + rb.velocity);
-    //    // rb.AddForce(Vector2.down * slideSpeed, ForceMode2D.Impulse); //new Vector2(rb.velocity.x, -slideSpeed);
-    //    // rb.velocity = Vector2.ClampMagnitude(rb.velocity, maxSlideSpeed);
-    //}
+    }
 
     public bool CheckGround()
     {
@@ -391,7 +415,12 @@ public class NewPlayer : PhysicsObject
         onRightWall = Physics2D.OverlapCircle((Vector2)transform.position + rightOffset, collisionRadius, groundLayer);
         onLeftWall = Physics2D.OverlapCircle((Vector2)transform.position + leftOffset, collisionRadius, groundLayer);
 
-        wallSide = onRightWall ? -1 : 1;
+        if (onRightWall)
+            wallSide = -1;
+        else if (onLeftWall)
+            wallSide = 1;
+        else wallSide = 0;
+            
     }
 
     void OnDrawGizmos()
@@ -417,7 +446,11 @@ public class NewPlayer : PhysicsObject
 
         float movement = Mathf.Pow(Mathf.Abs(speedDif) * accelRate, velPower) * Mathf.Sign(speedDif);
 
-        rb.AddForce(movement * Vector2.right);
+        if (wallJumped && moveInput.x == -lastWallSide)
+            rb.velocity = Vector2.Lerp(rb.velocity, (new Vector2(moveInput.x * maxSpeed, rb.velocity.y)), 1.5f * Time.deltaTime);
+        else
+            rb.AddForce(movement * Vector2.right);
+
 
         if (animator.GetBool("grounded") && Mathf.Abs(moveInput.x) < 0.01f)
         {
@@ -452,7 +485,7 @@ public class NewPlayer : PhysicsObject
             animator.SetBool("grounded", true);
             animator.SetFloat("velocityX", 0f);
             animator.SetFloat("velocityY", 0f);
-            GetComponent<PhysicsObject>().targetVelocity = Vector2.zero;
+          //  GetComponent<PhysicsObject>().targetVelocity = Vector2.zero;
         }
 
         frozen = freeze;

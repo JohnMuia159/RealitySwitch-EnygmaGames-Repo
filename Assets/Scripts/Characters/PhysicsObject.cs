@@ -9,7 +9,7 @@ public class PhysicsObject : MonoBehaviour
 {
     [Header ("Physics")]
     [SerializeField] public float minGroundNormalY = .65f;
-    public float gravityModifier = 1f;
+    public float gravityModifier;
     [System.NonSerialized] public Vector2 targetVelocity;
     [System.NonSerialized] public bool grounded;
     [System.NonSerialized] protected Vector2 groundNormal;
@@ -94,7 +94,7 @@ public class PhysicsObject : MonoBehaviour
             }
 
         }
-        rb2d.position = rb2d.position + move.normalized * distance;
+        //rb2d.position = rb2d.position + move.normalized * distance;
     }
 
 }

@@ -207,7 +207,7 @@ public class Walker : PhysicsObject
 
         enemyBase.animator.SetBool("grounded", grounded);
         enemyBase.animator.SetFloat("velocityX", Mathf.Abs(velocity.x) / maxSpeed);
-        targetVelocity = move * maxSpeed;
+       // targetVelocity = move * maxSpeed;
     }
 
     public void Jump()

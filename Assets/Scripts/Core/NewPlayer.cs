@@ -195,7 +195,11 @@ public class NewPlayer : PhysicsObject
         CheckInputs();
         CheckCoyoteTime();
         if (CheckGround())
+        {
+            jumping = false;
             wallJumped = false;
+        }
+            
 
         if (onWall && isWallSliding && !CheckGround() && Input.GetButtonDown("Jump"))
         {
@@ -328,7 +332,7 @@ public class NewPlayer : PhysicsObject
             jumpButtonPressed = Time.time;
         }
 
-        if (!jumping && Time.time - jumpButtonPressed <= jumpButtonGracePeriod && !wallJumped)
+        if (CheckGround() && Time.time - jumpButtonPressed <= jumpButtonGracePeriod && !wallJumped)
         {
             Jump(false);
             jumpButtonPressed = null;
@@ -595,7 +599,7 @@ public class NewPlayer : PhysicsObject
             jumpParticles.Emit(1);
             audioSource.pitch = (Random.Range(0.6f, 1f));
             audioSource.PlayOneShot(landSound);
-            jumping = false;
+            
         }
     }
 

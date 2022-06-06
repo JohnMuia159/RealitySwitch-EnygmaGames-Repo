@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="Studio.02.02.00">
+	<object class="AudioFile" id="{6eedc8ba-edc1-41cc-8a25-3ee95202e716}">
+		<property name="assetPath">
+			<value>step_4_sfx.wav</value>
+		</property>
+		<property name="frequencyInKHz">
+			<value>44.0999985</value>
+		</property>
+		<property name="channelCount">
+			<value>2</value>
+		</property>
+		<property name="length">
+			<value>0.23748299319727892</value>
+		</property>
+		<relationship name="masterAssetFolder">
+			<destination>{90e37f92-e3e9-42c2-960c-c0253fd56b38}</destination>
+		</relationship>
+	</object>
+</objects>

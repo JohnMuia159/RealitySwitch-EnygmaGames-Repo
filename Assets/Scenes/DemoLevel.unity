@@ -11783,7 +11783,27 @@ PrefabInstance:
     - {fileID: 1979371213, guid: 927e473a2ba484d75b382fc1faaf0eeb, type: 3}
     - {fileID: 1979371212, guid: 927e473a2ba484d75b382fc1faaf0eeb, type: 3}
     - {fileID: 114779388604134948, guid: 927e473a2ba484d75b382fc1faaf0eeb, type: 3}
+    - {fileID: 81810105363897254, guid: 927e473a2ba484d75b382fc1faaf0eeb, type: 3}
   m_SourcePrefab: {fileID: 100100000, guid: 927e473a2ba484d75b382fc1faaf0eeb, type: 3}
+--- !u!1 &7018260866872453975 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1884548363852062, guid: 927e473a2ba484d75b382fc1faaf0eeb,
+    type: 3}
+  m_PrefabInstance: {fileID: 7018260866872453974}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &7018260866872453976
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7018260866872453975}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86c6556701af9e04380698b89f691b6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  attenuationObject: {fileID: 0}
 --- !u!1001 &7105621422084467274
 PrefabInstance:
   m_ObjectHideFlags: 0

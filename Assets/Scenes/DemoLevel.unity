@@ -11619,6 +11619,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 114355383212365724, guid: 5a231d6c8a56d42c7829e8707f65eb05,
         type: 3}
+      propertyPath: dashCoolDownTimer
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 114355383212365724, guid: 5a231d6c8a56d42c7829e8707f65eb05,
+        type: 3}
       propertyPath: lowJumpMultiplier
       value: 2
       objectReference: {fileID: 0}

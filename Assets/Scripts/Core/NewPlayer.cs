@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.Events;
 
 /*Adds player functionality to a physics object*/
 
@@ -131,6 +132,10 @@ public class NewPlayer : PhysicsObject
     public float jumpTime;
     public bool wallJumped;
     public float lastWallSide;
+
+    [Header("Sounds")]
+    public FMODUnity.StudioEventEmitter jumpEmitter;
+
     protected override void Start()
     {
         base.Start();
@@ -154,7 +159,7 @@ public class NewPlayer : PhysicsObject
     {
         base.FixedUpdate();
         if (!CheckGround())
-        rb.velocity += gravityModifier * Physics2D.gravity * Time.deltaTime;
+            rb.velocity += gravityModifier * Physics2D.gravity * Time.deltaTime;
         if (doDash)
         {
             rb.velocity = dashingDir.normalized * dashSpeed;
@@ -168,7 +173,10 @@ public class NewPlayer : PhysicsObject
         }
         if (doWallJump)
         {
-            rb.velocity = new Vector2(wallSide * maxSpeed,jumpPower) ;
+            if (moveInput.x != 0)
+            rb.velocity = new Vector2(wallSide * maxSpeed, jumpPower);
+            else
+                rb.velocity = new Vector2(1.25f * wallSide * maxSpeed, jumpPower);
             //  rb.AddForce(-moveInput.x * jumpPower, ForceMode2D.Impulse);
             lastWallSide = wallSide;
             doWallJump = false;
@@ -199,7 +207,7 @@ public class NewPlayer : PhysicsObject
             jumping = false;
             wallJumped = false;
         }
-            
+
 
         if (onWall && isWallSliding && !CheckGround() && Input.GetButtonDown("Jump"))
         {
@@ -296,9 +304,9 @@ public class NewPlayer : PhysicsObject
         {
             dashCDFinish = true;
             dashTimer = false;
-            dashCoolDown = dashCoolDownTimer; 
+            dashCoolDown = dashCoolDownTimer;
         }
-            
+
 
         // animator.SetBool("IsDashing", isDashing);
 
@@ -319,7 +327,7 @@ public class NewPlayer : PhysicsObject
     {
         yield return new WaitForSeconds(dashTime);
         gravityModifier = gravityStore;
-       // rb.gravityScale = 1;
+        // rb.gravityScale = 1;
         trailRenderer.emitting = false;
         isDashing = false;
     }
@@ -350,7 +358,7 @@ public class NewPlayer : PhysicsObject
             doWallJump = true;
     }
 
-    
+
     public void BetterJump()
     {
 
@@ -360,7 +368,7 @@ public class NewPlayer : PhysicsObject
         }
 
         else if (rb.velocity.y > 0 && !Input.GetButton("Jump") && !isDashing && !wallJumped)
-        { 
+        {
             gravityModifier = lowJumpMultiplier;
         }
         else
@@ -376,7 +384,7 @@ public class NewPlayer : PhysicsObject
         {
             isWallSliding = false;
 
-        } 
+        }
         if (!CheckGround() && onRightWall && moveInput.x > 0)
         {
             jumpTime = Time.time + wallJumpTime;
@@ -390,7 +398,8 @@ public class NewPlayer : PhysicsObject
             isWallSliding = true;
             canDash = true;
             dashCoolDown = 0;
-        } else if (jumpTime < Time.time)
+        }
+        else if (jumpTime < Time.time)
         {
             isWallSliding = false;
         }
@@ -415,7 +424,7 @@ public class NewPlayer : PhysicsObject
         else if (onLeftWall)
             wallSide = 1;
         else wallSide = 0;
-            
+
     }
 
     void OnDrawGizmos()
@@ -480,7 +489,7 @@ public class NewPlayer : PhysicsObject
             animator.SetBool("grounded", true);
             animator.SetFloat("velocityX", 0f);
             animator.SetFloat("velocityY", 0f);
-          //  GetComponent<PhysicsObject>().targetVelocity = Vector2.zero;
+            //  GetComponent<PhysicsObject>().targetVelocity = Vector2.zero;
         }
 
         frozen = freeze;
@@ -570,7 +579,7 @@ public class NewPlayer : PhysicsObject
         }
     }
 
- 
+
     public void PlayStepSound()
     {
         //Play a step sound at a random pitch between two floats, while also increasing the volume based on the Horizontal axis
@@ -580,8 +589,9 @@ public class NewPlayer : PhysicsObject
 
     public void PlayJumpSound()
     {
-        audioSource.pitch = (Random.Range(1f, 1f));
-        GameManager.Instance.audioSource.PlayOneShot(jumpSound, .1f);
+        //audioSource.pitch = (Random.Range(1f, 1f));
+        //GameManager.Instance.audioSource.PlayOneShot(jumpSound, .1f);
+        jumpEmitter.Play();
     }
 
 
@@ -599,7 +609,7 @@ public class NewPlayer : PhysicsObject
             jumpParticles.Emit(1);
             audioSource.pitch = (Random.Range(0.6f, 1f));
             audioSource.PlayOneShot(landSound);
-            
+
         }
     }
 

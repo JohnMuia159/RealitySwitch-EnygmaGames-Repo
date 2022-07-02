@@ -12,7 +12,7 @@ public class NewPlayer : PhysicsObject
 {
     [Header("Reference")]
     public AudioSource audioSource;
-    [SerializeField] private Animator animator;
+    [SerializeField] public Animator animator;
     private AnimatorFunctions animatorFunctions;
     public GameObject attackHit;
     private CapsuleCollider2D capsuleCollider;
@@ -117,11 +117,13 @@ public class NewPlayer : PhysicsObject
     public LayerMask groundLayer;
 
     [Header("Better Movement")]
-    private Vector2 moveInput;
+    public Vector2 moveInput;
     [SerializeField] private float acceleration;
     [SerializeField] private float deceleration;
     [SerializeField] private float velPower;
     [SerializeField] private float frictionAmount;
+    public bool isFacingLeft;
+    public bool isFacingRight = true;
 
     [Header("Wall Movement")]
     [SerializeField] private float slideSpeed;
@@ -133,6 +135,9 @@ public class NewPlayer : PhysicsObject
     public bool wallJumped;
     public float lastWallSide;
 
+    [Header("Bow")]
+    public bool bowEquip;
+
     [Header("Sounds")]
     public FMODUnity.StudioEventEmitter jumpEmitter;
 
@@ -140,7 +145,7 @@ public class NewPlayer : PhysicsObject
     {
         base.Start();
         gravityStore = gravityModifier;
-        Cursor.visible = false;
+        Cursor.visible = true; 
         SetUpCheatItems();
         health = maxHealth;
         animatorFunctions = GetComponent<AnimatorFunctions>();
@@ -207,6 +212,20 @@ public class NewPlayer : PhysicsObject
             jumping = false;
             wallJumped = false;
         }
+        if (moveInput.x > 0)
+        {
+            isFacingRight = true;
+            isFacingLeft = false;
+        }
+        if (moveInput.x < 0)
+        {
+            isFacingLeft = true;
+            isFacingRight = false;
+        }
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            bowEquip = !bowEquip;
+        }
 
 
         if (onWall && isWallSliding && !CheckGround() && Input.GetButtonDown("Jump"))
@@ -260,7 +279,7 @@ public class NewPlayer : PhysicsObject
             pauseMenu.SetActive(true);
         }
 
-        if (Input.GetMouseButtonDown(0))
+        if (Input.GetMouseButtonDown(0) && !bowEquip)
         {
             animator.SetTrigger("attack");
             Shoot(false);
@@ -641,14 +660,14 @@ public class NewPlayer : PhysicsObject
         //As long as the player as activated the pound in ActivatePound, the following will occur when hitting the ground.
         if (pounding)
         {
-            animator.ResetTrigger("attack");
-            velocity.y = jumpPower / 1.4f;
-            animator.SetBool("pounded", true);
-            GameManager.Instance.audioSource.PlayOneShot(poundSound);
-            cameraEffects.Shake(200, 1f);
-            pounding = false;
-            recoveryCounter.counter = 0;
-            animator.SetBool("pounded", true);
+            //animator.ResetTrigger("attack");
+            //velocity.y = jumpPower / 1.4f;
+            //animator.SetBool("pounded", true);
+            //GameManager.Instance.audioSource.PlayOneShot(poundSound);
+            //cameraEffects.Shake(200, 1f);
+            //pounding = false;
+            //recoveryCounter.counter = 0;
+            //animator.SetBool("pounded", true);
         }
     }
 
@@ -667,30 +686,30 @@ public class NewPlayer : PhysicsObject
 
     public void Shoot(bool equip)
     {
-        //Flamethrower ability
-        if (GameManager.Instance.inventory.ContainsKey("flamethrower"))
-        {
-            if (equip)
-            {
-                if (!shooting)
-                {
-                    animator.SetBool("shooting", true);
-                    GameManager.Instance.audioSource.PlayOneShot(equipSound);
-                    flameParticlesAudioSource.Play();
-                    shooting = true;
-                }
-            }
-            else
-            {
-                if (shooting)
-                {
-                    animator.SetBool("shooting", false);
-                    flameParticlesAudioSource.Stop();
-                    GameManager.Instance.audioSource.PlayOneShot(holsterSound);
-                    shooting = false;
-                }
-            }
-        }
+        ////Flamethrower ability
+        //if (GameManager.Instance.inventory.ContainsKey("flamethrower"))
+        //{
+        //    if (equip)
+        //    {
+        //        if (!shooting)
+        //        {
+        //            animator.SetBool("shooting", true);
+        //            GameManager.Instance.audioSource.PlayOneShot(equipSound);
+        //            flameParticlesAudioSource.Play();
+        //            shooting = true;
+        //        }
+        //    }
+        //    else
+        //    {
+        //        if (shooting)
+        //        {
+        //            animator.SetBool("shooting", false);
+        //            flameParticlesAudioSource.Stop();
+        //            GameManager.Instance.audioSource.PlayOneShot(holsterSound);
+        //            shooting = false;
+        //        }
+        //    }
+        //}
     }
 
     public void SetUpCheatItems()

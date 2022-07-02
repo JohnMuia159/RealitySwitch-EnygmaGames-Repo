@@ -30,7 +30,7 @@ public class Ejector : MonoBehaviour
         else
         {
             rb.isKinematic = true;
-            GetComponent<Collider2D>().enabled = false;
+            GetComponent<Collider2D>().enabled = true;
             collectableTrigger.enabled = true;
         }
     }
